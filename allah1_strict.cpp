@@ -1,4 +1,4 @@
-// ﷲ
+// ﷲ.cpp
 // allah1_strict.cpp
 //
 // ALLAH-1 (A1) single-byte encoding — Public Domain / CC0-1.0
