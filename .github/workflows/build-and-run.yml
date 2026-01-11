@@ -1,0 +1,14 @@
+name: Build and Run
+
+on: [push, workflow_dispatch]
+
+jobs:
+build:
+runs-on: ubuntu-latest
+steps:
+- uses: actions/checkout@v4
+
+  - name: Compile
+    run: gcc allah1_strict.cpp -o ﷲ
+  - name: Execute
+    run: ./ﷲ
