@@ -1,0 +1,1 @@
+this.autocodeandautodeliveranddeployandpushthroughalltruegoodcodeinallwaysofﷲ.self.regeneratealldetailsthecorrectwayofﷲ
