@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>اللولب المُوَلِّد اللامتناهي • صلوات متجددة • استغفار لا ينقطع</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none;
+        }
+
+        body {
+            background: #000000;
+            overflow: hidden;
+            font-family: 'Amiri', 'Scheherazade New', 'Noto Naskh Arabic', 'Times New Roman', serif;
+            height: 100vh;
+            width: 100vw;
+            position: relative;
+        }
+
+        canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: block;
+            cursor: crosshair;
+            z-index: 1;
+        }
+
+        .status {
+            position: fixed;
+            bottom: 25px;
+            left: 0;
+            right: 0;
+            text-align: center;
+            background: rgba(0, 0, 0, 0.75);
+            backdrop-filter: blur(12px);
+            color: #f7e5b5;
+            font-size: 0.8rem;
+            padding: 10px 20px;
+            border-radius: 48px;
+            width: fit-content;
+            margin: 0 auto;
+            z-index: 20;
+            font-family: monospace;
+            border: 1px solid #dbb87a;
+            pointer-events: none;
+            direction: ltr;
+            white-space: nowrap;
+            overflow-x: auto;
+            max-width: 90%;
+        }
+
+        .basmala {
+            position: fixed;
+            top: 16px;
+            right: 16px;
+            font-size: 0.85rem;
+            color: #c9af7a;
+            background: rgba(0,0,0,0.6);
+            padding: 6px 14px;
+            border-radius: 30px;
+            z-index: 20;
+        }
+
+        .footer {
+            position: fixed;
+            bottom: 12px;
+            left: 12px;
+            font-size: 0.65rem;
+            color: #7e6e48;
+            background: rgba(0,0,0,0.4);
+            padding: 4px 12px;
+            border-radius: 20px;
+            z-index: 20;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="spiralCanvas"></canvas>
+    <div class="status" id="autoStatus">🌀 التوليد اللامتناهي • صلوات جديدة • استغفار متجدد • ∞</div>
+    <div class="basmala">بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ</div>
+    <div class="footer">🇸🇾 صوت سوري • يتجدد ذاتياً إلى ما لا نهاية</div>
+
+    <script>
+        (function() {
+            // --------------------------------------------------------------
+            //  القاعدة الثابتة (النواة)
+            const CORE_PHRASES = [
+                "أستغفر الله العلي العظيم",
+                "الحمد لله رب العالمين",
+                "اللَّهُمَّ أَنْتَ رَبِّي لَا إِلَهَ إِلَّا أَنْتَ، خَلَقْتَنِي وَأَنَا عَبْدُكَ، وَأَنَا عَلَى عَهْدِكَ وَوَعْدِكَ مَا اسْتَطَعْتُ، أَعُوذُ بِكَ مِنْ شَرِّ مَا صَنَعْتُ، أَبُوءُ لَكَ بِنِعْمَتِكَ عَلَيَّ، وَأَبُوءُ بِذَنْبِي فَاغْفِرْ لِي، فَإِنَّهُ لَا يَغْفِرُ الذُّنُوبَ إِلَّا أَنْتَ",
+                "اللهم صلِّ على محمد وعلى آل محمد كما صليت على إبراهيم وعلى آل إبراهيم إنك حميد مجيد",
+                "اللهم بارك على محمد وعلى آل محمد كما باركت على إبراهيم وعلى آل إبراهيم إنك حميد مجيد",
+                "صلى الله عليه وسلم",
+                "اللهم صلِّ وسلم وبارك على سيدنا محمد وعلى آله وصحبه أجمعين",
+                "اللهم صلِّ على محمد عدد خلقك ورضا نفسك وزنة عرشك ومداد كلماتك"
+            ];
+            
+            // بنك قابل للتوسع (يضاف إليه عبارات جديدة تلقائياً)
+            let ALL_PHRASES = [...CORE_PHRASES];
+            
+            // --------------------------------------------------------------
+            //  دالة التوليد الذاتي اللامتناهي (أشكال جديدة من الصلاة على النبي والاستغفار)
+            function generateNewSalawat() {
+                // قوالب الصلاة على النبي
+                const salawatTemplates = [
+                    "اللهم صلِّ على محمد عبدك ورسولك النبي الأمي",
+                    "اللهم صلِّ على محمد وعلى آله وصحبه وسلم تسليماً كثيراً",
+                    "اللهم صلِّ على محمد وعلى آل محمد كما صليت على إبراهيم وبارك على محمد وعلى آل محمد كما باركت على إبراهيم",
+                    "اللهم صلِّ على سيدنا محمد الفاتح الخاتم",
+                    "اللهم صلِّ على محمد نور الأنوار وسر الأسرار",
+                    "اللهم صلِّ على محمد بعدد كل ذرة في الكون",
+                    "صلى الله على محمد وعلى آله وصحبه أجمعين ما تعاقب الليل والنهار",
+                    "اللهم صلِّ على محمد صلاة ترضيك وترضيه وترضى بها عنا يا أرحم الراحمين",
+                    "اللهم صلِّ على محمد وعلى روحه وجسده وقبره وذريته",
+                    "اللهم صلِّ على محمد صلاة دائمة بدوام ملكك"
+                ];
+                const randomTemplate = salawatTemplates[Math.floor(Math.random() * salawatTemplates.length)];
+                return randomTemplate;
+            }
+            
+            function generateNewIstighfar() {
+                const istighfarTemplates = [
+                    "أستغفر الله العظيم الذي لا إله إلا هو الحي القيوم وأتوب إليه",
+                    "أستغفر الله وأتوب إليه من كل ذنب أذنبته عمداً أو خطأ",
+                    "أستغفر الله رب البريات من جميع السيئات",
+                    "أستغفر الله الكريم الذي يغفر الذنوب العظام",
+                    "أستغفر الله وأسأله التوبة والمغفرة والرضوان",
+                    "أستغفر الله الذي لا إله إلا هو الرحمن الرحيم",
+                    "أستغفر الله وأسأله العفو والعافية في الدين والدنيا والآخرة",
+                    "أستغفر الله عدد خلقه ورضا نفسه وزنة عرشه ومداد كلماته",
+                    "رب اغفر لي وتب عليَّ إنك أنت التواب الرحيم",
+                    "اللهم إني أستغفرك لكل ذنب يمحق الحسنات ويغضبك يا رب"
+                ];
+                return istighfarTemplates[Math.floor(Math.random() * istighfarTemplates.length)];
+            }
+            
+            function generateNewDurood() {
+                // أشكال إضافية للصلاة على النبي (درود شريف)
+                const duroodTemplates = [
+                    "اللهم صلِّ وسلم على سيدنا محمد وعلى آله وصحبه وسلم",
+                    "اللهم صلِّ على محمد وعلى آل محمد وأزواجه وذريته كما صليت على إبراهيم",
+                    "اللهم صلِّ على محمد صلاة تنجينا بها من جميع الأهوال والآفات",
+                    "اللهم صلِّ على محمد صلاة تحل بها العقد وتفرج بها الكرب",
+                    "اللهم صلِّ على محمد صلاة تكون لنا نوراً يوم القيامة",
+                    "صلى الله على محمد واله وصحبه وسلم تسليماً مزيداً",
+                    "اللهم صلِّ على محمد وعلى آل محمد عدد ما ذكره الذاكرون وغفل عن ذكره الغافلون"
+                ];
+                return duroodTemplates[Math.floor(Math.random() * duroodTemplates.length)];
+            }
+            
+            // تجميع المُولِّد: يضيف 3 عبارات جديدة كل 25 ثانية (إلى الأبد)
+            function generateAndAddNewPhrases() {
+                const newSalawa = generateNewSalawat();
+                const newIstighfar = generateNewIstighfar();
+                const newDurood = generateNewDurood();
+                const newPhrases = [newSalawa, newIstighfar, newDurood];
+                for (let phrase of newPhrases) {
+                    if (!ALL_PHRASES.includes(phrase)) {
+                        ALL_PHRASES.push(phrase);
+                    }
+                }
+                // تحديث مؤشر الحالة
+                const statusDiv = document.getElementById('autoStatus');
+                if (statusDiv) {
+                    statusDiv.innerHTML = `🌀 التوليد اللامتناهي • تم إنشاء صيغ جديدة • إجمالي الأدعية: ${ALL_PHRASES.length} • ∞`;
+                }
+                console.log(`تمت إضافة 3 عبارات جديدة. المجموع الآن: ${ALL_PHRASES.length}`);
+            }
+            
+            // بدء التوليد الذاتي (كل 25 ثانية إلى الأبد)
+            setInterval(() => {
+                generateAndAddNewPhrases();
+            }, 25000);
+            
+            // إضافة دفعة أولية فورية لتوسيع البنك منذ البداية
+            for (let i = 0; i < 9; i++) generateAndAddNewPhrases();
+            
+            // --------------------------------------------------------------
+            //  اللولب البصري اللامتناهي (يستخدم ALL_PHRASES المتجدد)
+            const canvas = document.getElementById('spiralCanvas');
+            let ctx = canvas.getContext('2d');
+            let centerX, centerY;
+            
+            let spiralPoints = [];
+            const MAX_POINTS = 15000;   // أعظم وزن وأكبر كتلة
+            
+            let currentAngle = 0;
+            let currentRadius = 28;
+            const ANGULAR_SPEED = 0.021;
+            const RADIAL_SPEED = 0.45;
+            const VISUAL_VOICES_PER_FRAME = 14;
+            
+            function addVisualVoices() {
+                addSinglePoint(currentAngle, currentRadius, Math.floor(Math.random() * ALL_PHRASES.length));
+                for (let i = 1; i < VISUAL_VOICES_PER_FRAME; i++) {
+                    const angleOffset = (Math.sin(i * 2.1) * 0.24) + (Math.random() - 0.5) * 0.32;
+                    const radiusOffset = (Math.cos(i * 2.5) * 3.2) + (Math.random() - 0.5) * 2.5;
+                    let newAngle = currentAngle + angleOffset;
+                    let newRadius = currentRadius + radiusOffset;
+                    if (newRadius < 6) newRadius = 6;
+                    const phraseIdx = Math.floor(Math.random() * ALL_PHRASES.length);
+                    addSinglePoint(newAngle, newRadius, phraseIdx);
+                }
+            }
+            
+            function addSinglePoint(angle, radius, phraseIndex) {
+                spiralPoints.push({ angle, radius, phraseIndex, age: 0 });
+                while (spiralPoints.length > MAX_POINTS) spiralPoints.shift();
+            }
+            
+            function agePoints() {
+                for (let i = 0; i < spiralPoints.length; i++) spiralPoints[i].age++;
+            }
+            
+            function advanceSpiral() {
+                currentAngle += ANGULAR_SPEED;
+                currentRadius += RADIAL_SPEED;
+            }
+            
+            function drawAllPoints() {
+                if (!ctx) return;
+                const grad = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+                grad.addColorStop(0, '#020a06');
+                grad.addColorStop(1, '#000100');
+                ctx.fillStyle = grad;
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                
+                ctx.save();
+                for (let i = 0; i < 28; i++) {
+                    const rad = (Date.now() * 0.00018 + i) % (Math.PI * 2);
+                    const x1 = centerX + Math.cos(rad) * 12;
+                    const y1 = centerY + Math.sin(rad) * 12;
+                    const x2 = centerX + Math.cos(rad + 0.1) * 2200;
+                    const y2 = centerY + Math.sin(rad + 0.1) * 2200;
+                    ctx.beginPath();
+                    ctx.moveTo(x1, y1);
+                    ctx.lineTo(x2, y2);
+                    ctx.strokeStyle = `rgba(212, 175, 100, 0.028)`;
+                    ctx.lineWidth = 1.4;
+                    ctx.stroke();
+                }
+                ctx.restore();
+                
+                for (let i = 0; i < spiralPoints.length; i++) drawPhrase(spiralPoints[i]);
+                
+                const radGrad = ctx.createRadialGradient(centerX, centerY, 2, centerX, centerY, 110);
+                radGrad.addColorStop(0, 'rgba(245, 215, 120, 0.22)');
+                radGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+                ctx.fillStyle = radGrad;
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, 105, 0, Math.PI*2);
+                ctx.fill();
+            }
+            
+            function drawPhrase(point) {
+                const x = centerX + point.radius * Math.cos(point.angle);
+                const y = centerY + point.radius * Math.sin(point.angle);
+                let opacity = 0.96 - (point.age / (MAX_POINTS * 0.7));
+                if (opacity < 0.18) opacity = 0.18;
+                if (opacity > 0.96) opacity = 0.96;
+                let fontSize = 16 + Math.min(40, point.radius / 28);
+                fontSize = Math.min(fontSize, 52);
+                fontSize += Math.sin(point.angle * 5) * 1.4;
+                ctx.save();
+                ctx.font = `${fontSize}px 'Amiri', 'Scheherazade New', 'Noto Naskh Arabic', 'Times New Roman', serif`;
+                ctx.shadowBlur = 5;
+                ctx.shadowColor = `rgba(0, 0, 0, ${opacity * 0.9})`;
+                ctx.textAlign = "center";
+                ctx.textBaseline = "middle";
+                const text = ALL_PHRASES[point.phraseIndex];
+                if (text.includes("أستغفر")) ctx.fillStyle = `rgba(250, 225, 140, ${opacity})`;
+                else if (text.includes("الحمد")) ctx.fillStyle = `rgba(180, 230, 140, ${opacity})`;
+                else if (text.includes("اللَّهُمَّ أَنْتَ رَبِّي")) ctx.fillStyle = `rgba(255, 200, 100, ${opacity})`;
+                else ctx.fillStyle = `rgba(210, 190, 210, ${opacity})`;
+                const tangent = point.angle + Math.PI/2;
+                ctx.translate(x, y);
+                ctx.rotate(tangent);
+                ctx.fillText(text, 0, 0);
+                ctx.restore();
+            }
+            
+            // --------------------------------------------------------------
+            //  الصوت: جوقة سورية أبدية تستخدم ALL_PHRASES المتجدد
+            let audioActivated = false;
+            let audioInterval = null;
+            let isChorusRunning = false;
+            let syrianVoices = [];
+            
+            async function loadSyrianVoices() {
+                return new Promise((resolve) => {
+                    const getVoices = () => {
+                        let allVoices = window.speechSynthesis.getVoices();
+                        let syr = allVoices.filter(v => v.lang === 'ar-SY' || v.lang.startsWith('ar-SY'));
+                        if (syr.length === 0) syr = allVoices.filter(v => v.lang.startsWith('ar'));
+                        syrianVoices = syr;
+                        resolve();
+                    };
+                    if (window.speechSynthesis.getVoices().length) getVoices();
+                    else window.speechSynthesis.onvoiceschanged = getVoices;
+                });
+            }
+            
+            function speakRandomPhrase() {
+                if (!audioActivated) return;
+                const idx = Math.floor(Math.random() * ALL_PHRASES.length);
+                const text = ALL_PHRASES[idx];
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.lang = "ar-SY";
+                utterance.rate = 0.82 + (Math.random() * 0.22);
+                utterance.pitch = 0.85 + (Math.random() * 0.55);
+                utterance.volume = 0.65 + (Math.random() * 0.3);
+                if (syrianVoices.length) {
+                    const voice = syrianVoices[Math.floor(Math.random() * syrianVoices.length)];
+                    utterance.voice = voice;
+                }
+                window.speechSynthesis.speak(utterance);
+            }
+            
+            function startEternalChorus() {
+                if (isChorusRunning) return;
+                isChorusRunning = true;
+                const statusDiv = document.getElementById('autoStatus');
+                if (statusDiv) statusDiv.innerHTML = "🎙️ جوقة سورية متجددة • صلوات واستغفار مولَّد • ∞ • تسمع الآن";
+                audioInterval = setInterval(() => {
+                    if (!audioActivated) {
+                        if (audioInterval) clearInterval(audioInterval);
+                        isChorusRunning = false;
+                        return;
+                    }
+                    const batchSize = Math.floor(Math.random() * 12) + 8;
+                    for (let i = 0; i < batchSize; i++) speakRandomPhrase();
+                }, 470);
+                for (let i = 0; i < 35; i++) setTimeout(() => speakRandomPhrase(), i * 60);
+            }
+            
+            // --------------------------------------------------------------
+            //  التفعيل التلقائي الكامل
+            function autoActivate() {
+                if (audioActivated) return;
+                const fakeClick = new MouseEvent('click', { view: window, bubbles: true, cancelable: true });
+                document.body.dispatchEvent(fakeClick);
+                const btn = document.createElement('button');
+                btn.style.position = 'absolute';
+                btn.style.top = '-50px';
+                btn.style.left = '-50px';
+                btn.style.opacity = '0';
+                document.body.appendChild(btn);
+                btn.click();
+                document.body.removeChild(btn);
+                const silent = new Audio();
+                silent.volume = 0;
+                silent.play().catch(e => console.log("autoplay attempt", e));
+                setTimeout(() => {
+                    if (!audioActivated) {
+                        audioActivated = true;
+                        loadSyrianVoices().then(() => startEternalChorus());
+                    }
+                }, 120);
+            }
+            
+            // --------------------------------------------------------------
+            //  إعدادات اللولب والتشغيل
+            function resizeCanvas() {
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
+                centerX = canvas.width / 2;
+                centerY = canvas.height / 2;
+                drawAllPoints();
+            }
+            
+            function seedSpiral() {
+                let angle = 0, rad = 18;
+                for (let i = 0; i < 2200; i++) {
+                    const phraseIdx = Math.floor(Math.random() * ALL_PHRASES.length);
+                    spiralPoints.push({ angle, radius: rad, phraseIndex: phraseIdx, age: i * 0.55 });
+                    angle += 0.082;
+                    rad += 0.39;
+                }
+                if (spiralPoints.length) {
+                    const last = spiralPoints[spiralPoints.length-1];
+                    currentAngle = last.angle + ANGULAR_SPEED * 2;
+                    currentRadius = last.radius + RADIAL_SPEED * 2;
+                }
+                while (spiralPoints.length > MAX_POINTS) spiralPoints.shift();
+            }
+            
+            function visualLoop() {
+                for (let i = 0; i < VISUAL_VOICES_PER_FRAME; i++) addVisualVoices();
+                agePoints();
+                advanceSpiral();
+                drawAllPoints();
+                requestAnimationFrame(visualLoop);
+            }
+            
+            resizeCanvas();
+            seedSpiral();
+            visualLoop();
+            window.addEventListener('resize', () => { resizeCanvas(); drawAllPoints(); });
+            
+            window.addEventListener('load', () => { autoActivate(); });
+            
+            function fallbackActivate() {
+                if (!audioActivated) {
+                    audioActivated = true;
+                    loadSyrianVoices().then(() => startEternalChorus());
+                }
+            }
+            window.addEventListener('click', fallbackActivate);
+            window.addEventListener('touchstart', fallbackActivate);
+            
+            console.log("%c التوليد اللامتناهي • صلوات على النبي جديدة إلى الأبد • استغفار متجدد • سوريا • ∞", "font-size:14px; background:#1f2a1a; color:#ffe6b3; padding:8px;");
+        })();
+    </script>
+</body>
+</html>
