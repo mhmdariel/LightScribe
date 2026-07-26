@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ﷲ · Infinite Crescendo</title>
+    <style>
+        /* ── reset ── */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            width: 100vw;
+            height: 100vh;
+            height: 100dvh;
+            overflow: hidden;
+            background: #080808;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* ── viewport ── */
+        #viewport {
+            position: fixed;
+            inset: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            background: radial-gradient(ellipse at center, #0f0a06 0%, #040303 100%);
+            z-index: 0;
+        }
+
+        /* ── symbol ── */
+        #symbol {
+            font-family: 'Arial', 'Segoe UI', 'Noto Sans Arabic', sans-serif;
+            transform-origin: center center;
+            will-change: transform, font-size, color, text-shadow, filter;
+            user-select: none;
+            pointer-events: none;
+            line-height: 1;
+            z-index: 1;
+        }
+
+        /* ── vignette overlay ── */
+        .vignette {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            background: radial-gradient(ellipse at center, transparent 40%, rgba(0, 0, 0, 0.55) 100%);
+            z-index: 2;
+        }
+
+        /* ── info display ── */
+        #info {
+            position: fixed;
+            bottom: 24px;
+            left: 0;
+            right: 0;
+            text-align: center;
+            font: 14px/1.4 'SF Mono', 'Courier New', monospace;
+            color: rgba(255, 215, 150, 0.20);
+            letter-spacing: 0.05em;
+            z-index: 3;
+            pointer-events: none;
+            text-shadow: 0 0 12px rgba(255, 180, 80, 0.08);
+        }
+        #info span {
+            display: inline-block;
+            min-width: 6ch;
+        }
+
+        /* ── start hint ── */
+        #start-hint {
+            position: fixed;
+            bottom: 80px;
+            left: 0;
+            right: 0;
+            text-align: center;
+            font: 16px/1.4 'SF Mono', 'Courier New', monospace;
+            color: rgba(255, 215, 150, 0.25);
+            letter-spacing: 0.08em;
+            z-index: 4;
+            pointer-events: none;
+            opacity: 1;
+            transition: opacity 1.5s ease;
+            text-shadow: 0 0 20px rgba(255, 180, 80, 0.1);
+        }
+        #start-hint.fade {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        @media (max-width: 600px) {
+            #info {
+                font-size: 11px;
+                bottom: 16px;
+            }
+            #start-hint {
+                font-size: 13px;
+                bottom: 60px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- viewport -->
+    <div id="viewport">
+        <div id="symbol">ﷲ</div>
+    </div>
+
+    <!-- vignette -->
+    <div class="vignette"></div>
+
+    <!-- info -->
+    <div id="info">
+        <span id="level">⏺ 1</span>
+        &ensp;·&ensp;
+        <span id="size">10 px</span>
+        &ensp;·&ensp;
+        <span id="audio-status">🔇</span>
+    </div>
+
+    <!-- start hint -->
+    <div id="start-hint">☝ click / tap anywhere to start audio</div>
+
+    <script>
+        (function() {
+            'use strict';
+
+            // ─── DOM refs ──────────────────────────────────────────────
+            const symbol = document.getElementById('symbol');
+            const viewport = document.getElementById('viewport');
+            const levelEl = document.getElementById('level');
+            const sizeEl = document.getElementById('size');
+            const audioStatusEl = document.getElementById('audio-status');
+            const hintEl = document.getElementById('start-hint');
+
+            // ─── state ──────────────────────────────────────────────────
+            const STATE = {
+                fontSize: 12,
+                zoom: 1,
+                level: 0,
+                phase: 0,
+                audioReady: false,
+                audioStarted: false,
+            };
+
+            // ─── constants ─────────────────────────────────────────────
+            const GROWTH_RATE_FONT = 1.008;
+            const GROWTH_RATE_ZOOM = 1.004;
+            const MAX_FONT = 1200;
+            const MIN_FONT = 12;
+            const BASE_GLOW = 8;
+            const MAX_GLOW = 380;
+
+            // ─── Audio engine ───────────────────────────────────────────
+            let audioCtx = null;
+            let osc1 = null;
+            let osc2 = null;
+            let gainNode = null;
+            let filterNode = null;
+            let osc2Gain = null;
+
+            function initAudio() {
+                if (audioCtx) return;
+                try {
+                    audioCtx = new(window.AudioContext || window.webkitAudioContext)();
+
+                    // Master gain
+                    gainNode = audioCtx.createGain();
+                    gainNode.gain.value = 0.001;
+                    gainNode.connect(audioCtx.destination);
+
+                    // Filter (low-pass)
+                    filterNode = audioCtx.createBiquadFilter();
+                    filterNode.type = 'lowpass';
+                    filterNode.frequency.value = 200;
+                    filterNode.Q.value = 1;
+                    filterNode.connect(gainNode);
+
+                    // Oscillator 1 (sine, main tone)
+                    osc1 = audioCtx.createOscillator();
+                    osc1.type = 'sine';
+                    osc1.frequency.value = 80;
+                    osc1.connect(filterNode);
+
+                    // Oscillator 2 (sawtooth, harmonic richness)
+                    osc2 = audioCtx.createOscillator();
+                    osc2.type = 'sawtooth';
+                    osc2.frequency.value = 80;
+                    // We'll add a gain node for osc2 to control its level independently
+                    osc2Gain = audioCtx.createGain();
+                    osc2Gain.gain.value = 0.2;
+                    osc2.connect(osc2Gain);
+                    osc2Gain.connect(filterNode);
+
+                    // Start oscillators
+                    osc1.start(0);
+                    osc2.start(0);
+
+                    STATE.audioReady = true;
+                    audioStatusEl.textContent = '🔊';
+                    hintEl.classList.add('fade');
+
+                    console.log('🎵 Audio ready');
+                } catch (e) {
+                    console.warn('Web Audio not supported', e);
+                    audioStatusEl.textContent = '⛔';
+                }
+            }
+
+            function updateAudio(intensity) {
+                if (!audioCtx || !STATE.audioStarted) return;
+
+                // intensity: 0..1
+                const freqMin = 80;
+                const freqMax = 1200;
+                const freq = freqMin * Math.pow(freqMax / freqMin, intensity);
+                osc1.frequency.value = freq;
+                osc2.frequency.value = freq * 1.015; // slight detune for richness
+
+                // Volume: exponential from 0.001 to 0.4
+                const gainMin = 0.001;
+                const gainMax = 0.4;
+                gainNode.gain.value = gainMin * Math.pow(gainMax / gainMin, intensity);
+
+                // Filter frequency: opens up
+                const filtMin = 200;
+                const filtMax = 7000;
+                filterNode.frequency.value = filtMin * Math.pow(filtMax / filtMin, intensity);
+
+                // Increase osc2 volume relative to osc1 as intensity grows
+                const osc2Level = 0.1 + intensity * 0.6;
+                osc2Gain.gain.value = osc2Level;
+
+                audioStatusEl.textContent = '🔊';
+            }
+
+            // ─── start audio on user gesture ───────────────────────────
+            function startAudio() {
+                if (STATE.audioStarted) return;
+                if (!audioCtx) {
+                    initAudio();
+                    if (!audioCtx) return;
+                }
+                if (audioCtx.state === 'suspended') {
+                    audioCtx.resume().then(() => {
+                        STATE.audioStarted = true;
+                        audioStatusEl.textContent = '🔊';
+                        hintEl.classList.add('fade');
+                    }).catch(e => console.warn('Resume failed', e));
+                } else {
+                    STATE.audioStarted = true;
+                    audioStatusEl.textContent = '🔊';
+                    hintEl.classList.add('fade');
+                }
+            }
+
+            // ─── visual update loop ─────────────────────────────────────
+            function tick() {
+                // Grow
+                STATE.fontSize *= GROWTH_RATE_FONT;
+                STATE.zoom *= GROWTH_RATE_ZOOM;
+                STATE.phase += 0.012;
+
+                // Reset font with zoom compensation
+                if (STATE.fontSize > MAX_FONT) {
+                    STATE.fontSize = MIN_FONT;
+                    STATE.zoom *= (MAX_FONT / MIN_FONT);
+                }
+
+                const apparent = STATE.fontSize * STATE.zoom;
+                STATE.level = Math.log10(apparent / 10 + 1) * 1.8;
+                const intensity = Math.min(STATE.level / 12, 1.0);
+
+                // ── visual style ──
+
+                // Color: warm gold → white-hot
+                const r = Math.min(255, 80 + intensity * 200);
+                const g = Math.min(255, 50 + intensity * 180);
+                const b = Math.min(255, 20 + intensity * 130);
+                const color = `rgb(${r|0}, ${g|0}, ${b|0})`;
+
+                // Glow
+                const glowRadius = Math.min(BASE_GLOW + apparent * 0.045, MAX_GLOW);
+                const glowAlpha = Math.min(0.15 + intensity * 0.85, 1.0);
+                const shadow =
+                    `0 0 ${glowRadius}px rgba(255, 200, 120, ${glowAlpha * 0.7}),
+                     0 0 ${glowRadius * 1.8}px rgba(255, 160, 60, ${glowAlpha * 0.35}),
+                     0 0 ${glowRadius * 3.5}px rgba(200, 100, 30, ${glowAlpha * 0.15})`;
+
+                // Filter: slight bloom + contrast
+                const blur = Math.min(intensity * 2.5, 4);
+                const contrast = 1 + intensity * 0.3;
+                const brightness = 1 + intensity * 0.25;
+                const filter = `blur(${blur}px) contrast(${contrast}) brightness(${brightness})`;
+
+                symbol.style.fontSize = STATE.fontSize + 'px';
+                symbol.style.color = color;
+                symbol.style.textShadow = shadow;
+                symbol.style.filter = filter;
+                symbol.style.transform = `scale(${STATE.zoom})`;
+
+                // Background pulse
+                const bgR = Math.min(18, 6 + intensity * 12);
+                const bgG = Math.min(14, 4 + intensity * 10);
+                const bgB = Math.min(12, 3 + intensity * 9);
+                viewport.style.background =
+                    `radial-gradient(ellipse at center, rgb(${bgR|0},${bgG|0},${bgB|0}) 0%, #040303 100%)`;
+
+                // ── audio ──
+                if (STATE.audioStarted) {
+                    updateAudio(intensity);
+                }
+
+                // ── info ──
+                const levelNum = Math.floor(STATE.level * 2 + 1);
+                levelEl.textContent = '⚡ ' + levelNum;
+                sizeEl.textContent = Math.round(apparent) + ' px';
+
+                requestAnimationFrame(tick);
+            }
+
+            // ─── start everything ───────────────────────────────────────
+            tick();
+
+            // ─── user interaction to start audio ────────────────────────
+            const startHandler = function() {
+                startAudio();
+                document.removeEventListener('click', startHandler);
+                document.removeEventListener('touchstart', startHandler);
+            };
+            document.addEventListener('click', startHandler);
+            document.addEventListener('touchstart', startHandler, { passive: true });
+
+            // ─── extra burst on click/tap ──────────────────────────────
+            document.addEventListener('click', function pulse() {
+                STATE.zoom *= 1.08;
+                STATE.fontSize *= 1.04;
+                if (!STATE.audioStarted) startAudio();
+            });
+
+            console.log('ﷲ · infinite audiovisual crescendo');
+            console.log('🔊 Click/tap anywhere to start the audio.');
+        })();
+    </script>
+
+</body>
+</html>
