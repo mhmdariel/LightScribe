@@ -1,0 +1,1 @@
+autoprint.maximalhighestaabsolutecount(ﷲﷻﷴﷺﷶﷲﷺ٩١)
